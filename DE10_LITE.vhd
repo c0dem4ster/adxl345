@@ -47,19 +47,19 @@ architecture rtl of DE10_Lite is
   constant spi_dat_write: std_logic_vector(7 downto 0) := "00001000";
   -- read register datax0 (0x32)
   constant spi_cmd_read: std_logic_vector(7 downto 0) := "10110010";
-  constant spi_clk_div: natural := 500;
+  constant spi_clk_div: natural := 5000;
 
   signal spi_state: spi_state_type;
   signal spi_counter: natural range 0 to spi_clk_div;
   signal spi_pulse: std_logic := '0';
   signal spi_sclk: std_logic := '0';
-  signal spi_sclk_ena: std_logic := '0';
+  signal spi_sclk_dis: std_logic := '1';
   signal spi_cmd: std_logic_vector(7 downto 0);
   signal spi_fin: std_logic := '0';
   signal current_bit: natural range 0 to 7;
 
   signal adxl_state: adxl_state_type;
-  signal idle_counter: natural range 0 to 10000;
+  signal idle_counter: natural range 0 to 1000000;
 
   --=====================================================================================================
 begin
@@ -80,6 +80,8 @@ begin
   GPIO(2) <= GSENSOR_SDI;
   GPIO(3) <= GSENSOR_SDO;
 
+  GSENSOR_SCLK <= spi_sclk or spi_sclk_dis;
+
   -- divide 50MHz to 1 MHz
   CLK_DIV: process(CLK, nRST)
   begin
@@ -88,11 +90,6 @@ begin
       spi_pulse <= '0';
       spi_sclk <= '1';
     elsif(rising_edge(CLK)) then
-      if(spi_state /= s_idle) then
-        GSENSOR_SCLK <= spi_sclk;
-      else
-        GSENSOR_SCLK <= '1';
-      end if;
       if(spi_counter = spi_clk_div) then
         spi_counter <= 0;
         spi_sclk <= not spi_sclk;
@@ -108,6 +105,7 @@ begin
   begin
     if(nRST = '0') then
       spi_state <= s_idle;
+      spi_sclk_dis <= '1';
       adxl_state <= s_startup_cmd;
       idle_counter <= 0;
       GSENSOR_CS_N <= '1';
@@ -117,6 +115,7 @@ begin
         when s_startup_cmd =>
           if(spi_fin = '0') then
             GSENSOR_CS_N <= '0';
+            spi_sclk_dis <= '0';
             if(spi_pulse = '1') then
               spi_state <= s_write;
               spi_cmd <= spi_cmd_write;
@@ -126,6 +125,9 @@ begin
           end if;
 
         when s_startup_dat =>
+          if(current_bit = 0 and spi_counter = 0) then
+            spi_sclk_dis <= '1';
+          end if;
           if(spi_fin = '0') then
             spi_state <= s_write;
             spi_cmd <= spi_dat_write;
@@ -137,6 +139,7 @@ begin
         when s_sampling_cmd =>
           if(spi_fin = '0') then
             GSENSOR_CS_N <= '0';
+            spi_sclk_dis <= '0';
             if(spi_pulse = '1') then
               spi_state <= s_write;
               spi_cmd <= spi_cmd_read;
@@ -146,6 +149,9 @@ begin
           end if;
 
         when s_sampling_dat =>
+          if(current_bit = 0 and spi_counter = 0) then
+            spi_sclk_dis <= '1';
+          end if;
           if(spi_fin = '0') then
             spi_state <= s_read;
           else
@@ -155,7 +161,7 @@ begin
 
         when s_pause =>
           spi_state <= s_idle;
-          if(idle_counter /= 10000) then
+          if(idle_counter /= 1000000) then
             idle_counter <= idle_counter + 1;
           else
             idle_counter <= 0;
@@ -192,16 +198,14 @@ begin
 
   WRITE_SPI: process(CLK, nRST)
   begin
-    if(nRST = '0') then
-    elsif(rising_edge(CLK) and spi_state = s_write) then
+    if(rising_edge(CLK) and spi_state = s_write) then
       GSENSOR_SDI <= spi_cmd(current_bit);
     end if;
   end process WRITE_SPI;
 
   READ_SPI: process(CLK, nRST)
   begin
-    if(nRST = '0') then
-    elsif(rising_edge(CLK) and spi_state = s_read) then
+    if(rising_edge(CLK) and spi_state = s_read) then
       LEDR(current_bit) <= GSENSOR_SDO;
     end if;
   end process READ_SPI;
