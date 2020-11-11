@@ -22,14 +22,18 @@ end TB_DE10_Lite;
 architecture rtl of TB_DE10_Lite is
   --=====================================================================================================
   signal CLK: std_logic := '0';
+  signal nRST: std_logic_vector(1 downto 0) := "00";
   --=====================================================================================================
 begin
   --=====================================================================================================
   CLK <= not CLK after de10_cycle_time_c / 2;
+  nRST <= not nRST after 1 ms;
   --=====================================================================================================
   I_DE10_Lite:  entity work.DE10_Lite(rtl) port map (
     MAX10_CLK1_50 => CLK,
-    KEY => (others => '0'),
-    SW => (others => '0')
+    KEY => nRST,
+    SW => (others => '0'),
+    GSENSOR_INT  => (others => '0'),
+    GSENSOR_SDO  => '0'
   );
 end rtl;
