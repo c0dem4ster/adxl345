@@ -27,7 +27,7 @@ entity SPI is
         spi_fin       : out std_logic;
         spi_cmd       :  in std_logic_vector(7 downto 0);
         spi_dat_in    :  in std_logic_vector(7 downto 0);
-        spi_dat_out   : out std_logic_vector(7 downto 0)
+        spi_dat_out   : out std_logic_vector(15 downto 0)
        );
 end SPI;
 --=======================================================================================================
@@ -40,7 +40,7 @@ architecture rtl of SPI is
   constant spi_clk_div_n: natural := 50;
 
   signal spi_state:     spi_state_type;
-  signal current_bit:   natural range 0 to spi_no_bits;
+  signal current_bit:   natural range 0 to 15;
   signal spi_counter:   natural range 0 to spi_clk_div_n;
   signal spi_pulse_hi:  std_logic;
   signal spi_pulse_lo:  std_logic;
@@ -104,7 +104,7 @@ begin
 
         when s_dat =>
           if(spi_pulse_lo = '1') then
-            if(current_bit /= spi_no_bits) then
+            if((current_bit /= 7 and spi_cmd(1) = '0') or (current_bit /= 15 and spi_cmd(1) = '1')) then
               current_bit <= current_bit + 1;
             else
               current_bit <= 0;

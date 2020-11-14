@@ -27,8 +27,7 @@ entity DE10_Lite is
         GSENSOR_INT   :  in std_logic_vector(2 downto 1);
         GSENSOR_SCLK  : out std_logic;
         GSENSOR_SDI   : out std_logic;
-        GSENSOR_SDO   :  in std_logic;
-        GPIO          : out std_logic_vector(35 downto 0)
+        GSENSOR_SDO   :  in std_logic
         ---------------------------------------------------------------
        );
 end DE10_Lite;
@@ -46,16 +45,18 @@ architecture rtl of DE10_Lite is
   constant spi_dat_write: std_logic_vector(7 downto 0) := "00010000";
 
   -- read register datax0 (0x32) (reverse bit order)
-  constant spi_cmd_read:    std_logic_vector(7 downto 0) := "01001101";
+  constant spi_cmd_read:    std_logic_vector(7 downto 0) := "01001111";
   constant idle_count_max:  natural := 1000;
 
   signal spi_start:     std_logic;
   signal spi_fin:       std_logic;
   signal spi_cmd:       std_logic_vector(7 downto 0);
-  signal spi_dat:       std_logic_vector(7 downto 0);
+  signal spi_dat_in:    std_logic_vector(7 downto 0);
+  signal spi_dat_out:   std_logic_vector(15 downto 0);
 
   signal adxl_state: adxl_state_type;
-  signal idle_counter: natural range 0 to idle_count_max;
+  signal idle_counter:  natural range 0 to idle_count_max;
+  signal tmp_adxl_dat:  std_logic_vector(3 downto 0);
 
   --=====================================================================================================
 begin
@@ -80,10 +81,51 @@ begin
     spi_start   => spi_start,
     spi_fin     => spi_fin,
     spi_cmd     => spi_cmd,
-    spi_dat_in  => spi_dat,
-    spi_dat_out => LEDR(7 downto 0)
+    spi_dat_in  => spi_dat_in,
+    spi_dat_out => spi_dat_out
   );
 
+  -- display the accelerometer readings graphically
+  WRITE_LED: process(CLK, nRST)
+  begin
+    if(nRST = '0') then
+    elsif(rising_edge(CLK)) then
+      if(spi_fin = '1') then
+        tmp_adxl_dat <= (
+          0 => spi_dat_out(2),
+          1 => spi_dat_out(1),
+          2 => spi_dat_out(0),
+          3 => spi_dat_out(15)
+        );
+      end if;
+      case tmp_adxl_dat is
+        when "1000" =>
+          LEDR <= "0000000001";
+        when "1001" =>
+          LEDR <= "0000000010";
+        when "1011" =>
+          LEDR <= "0000000100";
+        when "1100" =>
+          LEDR <= "0000001000";
+        when "1110" =>
+          LEDR <= "0000010000";
+        when "0000" =>
+          LEDR <= "0000100000";
+        when "0010" =>
+          LEDR <= "0001000000";
+        when "0011" =>
+          LEDR <= "0010000000";
+        when "0101" =>
+          LEDR <= "0100000000";
+        when "0110" =>
+          LEDR <= "1000000000";
+        when others =>
+          null;
+      end case;
+    end if;
+  end process;
+
+  -- initializes and then reads data from adxl345
   READ_ADXL: process(CLK, nRST)
   begin
     if(nRST = '0') then
@@ -94,9 +136,9 @@ begin
       case adxl_state is
 
         when s_startup =>
-          spi_start <= '0';
-          spi_cmd <= spi_cmd_write;
-          spi_dat <= spi_dat_write;
+          spi_start   <= '0';
+          spi_cmd     <= spi_cmd_write;
+          spi_dat_in  <= spi_dat_write;
 
           if(spi_fin = '1') then
             adxl_state <= s_pause;
@@ -104,7 +146,7 @@ begin
 
         when s_sampling =>
           spi_start <= '0';
-          spi_cmd <= spi_cmd_read;
+          spi_cmd   <= spi_cmd_read;
 
           if(spi_fin = '1') then
             adxl_state <= s_pause;
@@ -112,11 +154,11 @@ begin
 
         when s_pause =>
           if(idle_counter /= idle_count_max) then
-            idle_counter <= idle_counter + 1;
+            idle_counter  <= idle_counter + 1;
           else
-            idle_counter <= 0;
-            adxl_state <= s_sampling;
-            spi_start <= '1';
+            idle_counter  <= 0;
+            adxl_state    <= s_sampling;
+            spi_start     <= '1';
           end if;
       end case;
     end if;
