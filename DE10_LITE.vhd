@@ -23,10 +23,10 @@ entity DE10_Lite is
         SW            :  in std_logic_vector(switches_c - 1 downto 0);
         LEDR          : out std_logic_vector(    leds_c - 1 downto 0);
         ---------------------------------------------------------------
-        GSENSOR_CS_N  : buffer std_logic;
+        GSENSOR_CS_N  : out std_logic;
         GSENSOR_INT   :  in std_logic_vector(2 downto 1);
-        GSENSOR_SCLK  : buffer std_logic;
-        GSENSOR_SDI   : buffer std_logic;
+        GSENSOR_SCLK  : out std_logic;
+        GSENSOR_SDI   : out std_logic;
         GSENSOR_SDO   :  in std_logic;
         GPIO          : out std_logic_vector(35 downto 0)
         ---------------------------------------------------------------
@@ -46,8 +46,8 @@ architecture rtl of DE10_Lite is
   constant spi_cmd_write: std_logic_vector(7 downto 0) := "00101101";
   constant spi_dat_write: std_logic_vector(7 downto 0) := "00001000";
   -- read register datax0 (0x32)
-  constant spi_cmd_read: std_logic_vector(7 downto 0) := "10110010";
-  constant spi_clk_div: natural := 5000;
+  constant spi_cmd_read: std_logic_vector(7 downto 0) := "10110011";
+  constant spi_clk_div: natural := 500;
 
   signal spi_state: spi_state_type;
   signal spi_counter: natural range 0 to spi_clk_div;
@@ -59,7 +59,7 @@ architecture rtl of DE10_Lite is
   signal current_bit: natural range 0 to 7;
 
   signal adxl_state: adxl_state_type;
-  signal idle_counter: natural range 0 to 1000000;
+  signal idle_counter: natural range 0 to 10000;
 
   --=====================================================================================================
 begin
@@ -73,12 +73,6 @@ begin
   --    0x31 data_format
   --    0x32 datax0
   --    0x33 datax1
-
-  -- debug
-  GPIO(0) <= GSENSOR_CS_N;
-  GPIO(1) <= GSENSOR_SCLK;
-  GPIO(2) <= GSENSOR_SDI;
-  GPIO(3) <= GSENSOR_SDO;
 
   GSENSOR_SCLK <= spi_sclk or spi_sclk_dis;
 
@@ -161,7 +155,7 @@ begin
 
         when s_pause =>
           spi_state <= s_idle;
-          if(idle_counter /= 1000000) then
+          if(idle_counter /= 10000) then
             idle_counter <= idle_counter + 1;
           else
             idle_counter <= 0;
