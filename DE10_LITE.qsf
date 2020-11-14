@@ -17,6 +17,7 @@ set_global_assignment -name SDC_FILE DE10_LITE.sdc
 #============================================================
 set_global_assignment -name VHDL_FILE DE10_LITE_const_pkg.vhd
 set_global_assignment -name VHDL_FILE DE10_LITE.vhd
+set_global_assignment -name VHDL_FILE spi.vhd
 #============================================================
 # CLOCK
 #============================================================

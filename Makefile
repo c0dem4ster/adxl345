@@ -14,7 +14,7 @@ TOP_UNIT = TB_DE10_LITE
 TOP_OBJ  = $(TOP_UNIT).o
 
 # object files in hierarchical order
-ALL_UNIT = DE10_LITE_const_pkg DE10_LITE TB_DE10_LITE
+ALL_UNIT = DE10_LITE_const_pkg spi DE10_LITE TB_DE10_LITE
 ALL_OBJ  = $(patsubst %, %.o, $(ALL_UNIT))
 
 # program to display waveforms
